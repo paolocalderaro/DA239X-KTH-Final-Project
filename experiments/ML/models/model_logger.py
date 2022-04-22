@@ -6,6 +6,9 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 from datetime import datetime
+from scipy.sparse import csr_matrix
+from scipy.sparse.csgraph import reverse_cuthill_mckee
+
 
 from utils.data_utils import read_merged_dataset
 
@@ -55,15 +58,62 @@ def prediction_plotter_2d(y_true, y_pred, output_dir = None, figname= None):
 
 
 def plot_corr_matrix(df, monitoring_params = None, input_params = None):
-    # extract correlation matrix. If we have a numpy array, we turn it into a pandas df to
+    # extract correlation matrix. It also order the matrix using the
+    # cuthill mckee algorithm.
+    # If we have a numpy array, we turn it into a pandas df to
     # extract correlation matrix
     if isinstance(df, np.ndarray):
-        df = pd.DataFrame(data = df, columns = monitoring_params + input_params)
+        df = pd.DataFrame(data=df, columns=monitoring_params + input_params)
 
+    df = read_merged_dataset(dataset_path)
+    monitoring_params = [  # 'ParameterSet',
+        'No',
+        # 'Time',
+        'CycleTime',
+        'Heart rate',
+        'Systemic arterial pressure',
+        'Pulmonary arterial pressure',
+        'Right atrial pressure',
+        'Left atrial pressure',
+        'Cardiac output/venous return',
+        'Left ventricular ejection fraction',
+        'Right ventricular ejection fraction',
+        'Hemoglobin',
+        'Systemic arterial oxygen saturation',
+        'Mixed venous oxygen saturation']
+    input_params = ['ParameterSet',
+                    # 'HR',
+                    'TotalVascularVolume',
+                    'e_lvmax',
+                    'e0_lv',
+                    'e_rvmax',
+                    'e0_rv',
+                    'SVR',
+                    'PVR',
+                    'Ea',
+                    'Epa',
+                    # 'Hb',
+                    'O2Cons',
+                    'PulmShuntFraction'
+                    # 'p_low'
+                    ]
     df.drop(labels=['ParameterSet', 'No', 'Time', 'p_low'], axis=1, inplace=True)
     corr = df.corr()
-    corr = corr.iloc[12:25, 12:25]
 
+    corr_np = csr_matrix(corr.to_numpy())
+    perm = reverse_cuthill_mckee(corr_np, symmetric_mode=True)
+    for i in range(len(perm)):
+        corr_np[:, i] = corr_np[perm, i]
+    for i in range(len(perm)):
+        corr_np[i, :] = corr_np[i, perm]
+
+    corr = pd.DataFrame(data=corr_np.toarray(), columns=monitoring_params + input_params)
+
+    # slice the index
+    # corr = corr.iloc[12:25, 12:25]
+
+    # reset the index for the rows
+    corr.set_index(pd.Series(monitoring_params + input_params), inplace=True)
     fig, ax = plt.subplots(figsize=(20, 18))
     sns.set(font_scale=1.3)
     cmap = sns.diverging_palette(10, 220, as_cmap=True)
@@ -279,5 +329,4 @@ def plot_true_pred_scatter(prediction_array,prediction_array_path = None ,output
 # use this for debug
 if __name__ == "__main__":
     print()
-
 
