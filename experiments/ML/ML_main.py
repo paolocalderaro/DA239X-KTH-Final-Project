@@ -72,9 +72,6 @@ if __name__ == "__main__":
                     #'p_low'
                     ]
 
-    #
-    #plot_corr_matrix(dataset)
-
     # create data and labels
     X_raw = dataset[monitoring_params]
     y = dataset[input_params].groupby(by='ParameterSet').max()
@@ -90,6 +87,7 @@ if __name__ == "__main__":
 
     # Dataset features selection
     #TODO
+
 
 
 
@@ -111,7 +109,7 @@ if __name__ == "__main__":
         np.random.seed(seed)  # seed for reproducibility
 
         # holdout validation
-        X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8, seed = seed)
 
         print('Build and fit a regressor model...')
         start = timeit.default_timer()      # start timer to measure computational time
@@ -157,7 +155,6 @@ if __name__ == "__main__":
         runtime_vector.append(stop - start)
 
         #plotting
-        #prediction_plotter_2d(y_true,y_pred)
 
         print('---------Dummy regressor score --------')
         # dummy regressor to compare results
@@ -177,17 +174,13 @@ if __name__ == "__main__":
         dummy_arrmse_vector.append(arrmse)
         print('_______________________________________')
 
-
     output_dir = 'experiments/ML/run_history/'+"MSVR(kernel = 'linear', gamma = 0.1, epsilon=0.001, C=100)"
     os.mkdir(output_dir)
-
 
     # plot distribution (it saves the first run)
     plot_true_pred_dist(prediction_vector,
                         output_dir=output_dir,
                         figname=str(model) + '__' + str(seed_list[0]))
-
-
 
     # save log of the run
     log_run(run_name=str(model),
@@ -198,6 +191,6 @@ if __name__ == "__main__":
             multi_rmse_vector=multi_rmse_vector,
             dummy_mse_vector=dummy_mse_vector,
             dummy_arrmse_vector=dummy_arrmse_vector,
-            prediction_vector = prediction_vector,
-            runtime_vector = runtime_vector,
+            prediction_vector=prediction_vector,
+            runtime_vector=runtime_vector,
             seed=seed_list)

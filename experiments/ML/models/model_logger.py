@@ -8,7 +8,7 @@ import seaborn as sns
 from datetime import datetime
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import reverse_cuthill_mckee
-
+from sklearn.model_selection import train_test_split
 
 from utils.data_utils import read_merged_dataset
 
@@ -57,7 +57,7 @@ def prediction_plotter_2d(y_true, y_pred, output_dir = None, figname= None):
     plt.show()
 
 
-def plot_corr_matrix(df, monitoring_params = None, input_params = None):
+def plot_corr_matrix(df, dataset_path = None, monitoring_params = None, input_params = None):
     # extract correlation matrix. It also order the matrix using the
     # cuthill mckee algorithm.
     # If we have a numpy array, we turn it into a pandas df to
@@ -138,16 +138,8 @@ def plot_corr_matrix(df, monitoring_params = None, input_params = None):
     plt.show()
 
 
-def log_run(run_name, output_dir,
-            mse_vector,
-            armsse_vector,
-            multi_mse_vector,
-            multi_rmse_vector,
-            dummy_mse_vector,
-            dummy_arrmse_vector,
-            prediction_vector,
-            runtime_vector,
-            seed):
+def log_run(run_name, output_dir,mse_vector,armsse_vector,multi_mse_vector,multi_rmse_vector,dummy_mse_vector,
+            dummy_arrmse_vector,prediction_vector,runtime_vector,seed):
 
     # save in the choosen output dir
     #os.chdir(output_dir)
@@ -237,7 +229,7 @@ def log_run(run_name, output_dir,
     f.close()
 
 
-def plot_true_pred_dist(prediction_array, output_dir = None, figname = None, run = 0):
+def plot_true_pred_dist(prediction_array, output_dir = None, run = 0):
     '''
 
     :param prediction_array: the array saved from the ML runs
@@ -281,6 +273,17 @@ def plot_true_pred_dist(prediction_array, output_dir = None, figname = None, run
 
 
 def plot_true_pred_scatter(prediction_array,prediction_array_path = None ,output_dir = None, run = 0):
+    '''
+        :param prediction_array: array containing the prediction
+        :param seed: seed used for the run to analyze
+        :param prediction_array_path: path in which the prediction array is located
+        :param output_dir: directory in which to save the .svg plot
+        :param run: number of the run to analyze
+        :return: print on std output the plot
+
+        scatter plot displaying the predicted values on the y-axis and the true value on the x-axis.
+        the red line plotted is the bisector so it describes the ideal case in which predicted = true for all data point.
+    '''
 
     # run it in the PyProject folder if you give output_dir as params
     if output_dir:
@@ -326,7 +329,124 @@ def plot_true_pred_scatter(prediction_array,prediction_array_path = None ,output
         plt.show()
 
 
+def plot_true_pred_color_code_scatter(prediction_array, seed, prediction_array_path = None ,output_dir = None, run = 0):
+    '''
+        :param prediction_array: array containing the prediction
+        :param seed: seed used for the run to analyze
+        :param prediction_array_path: path in which the prediction array is located
+        :param output_dir: directory in which to save the .svg plot
+        :param run: number of the run to analyze
+        :return: print on std output the plot
+
+        here we color map the entry on the scatter plot depending on the type of patient which they belong.
+    '''
+    os.chdir(output_dir)
+    if output_dir and (not os.path.isdir('./scatter_plot_cm')):
+        os.makedirs('scatter_plot_cm')
+        os.chdir('./scatter_plot_cm')
+
+    if os.path.isdir('./scatter_plot_cm'):
+        os.chdir('./scatter_plot_cm')
+
+
+    if prediction_array_path is not None:
+        prediction_array = np.load(prediction_array_path)
+
+    run_dictionary = {
+        '0': 'Adult 20y',
+        '1': 'Adult 60y',
+        '2': 'Adult 80y',
+        '3': 'Adult 20y',
+        '4': 'Adult 40y',
+        '5': 'Adult 60y',
+        '6': 'Adult 80y',
+        '7': 'Biventricular Failure',
+        '8': 'Left ventricular systolic failure',
+        '9': 'Stiff ventricle',
+        '10': 'Relaxation abnormalilty',
+        '11': 'Right heart failure'
+    }
+
+    # create an array that resemble the structure of the dataset before the split:
+    # - first 20 entries as case 1
+    # - other 20 entries as case 2 and so on.
+    label_list = []
+    X = np.random.rand(240)
+    for i in range(12):
+        for _ in range(20):
+            label_list.append(i)
+
+    # reproduce the split used in the run
+    np.random.seed(seed)  # seed for reproducibility
+    _, _, _, run_label = train_test_split(X, label_list, train_size=0.8)
+
+    labels = ['TotalVascularVolume',
+              'e_lvmax',
+              'e0_lv',
+              'e_rvmax',
+              'e0_rv',
+              'SVR',
+              'PVR',
+              'Ea',
+              'Epa',
+              'O2Cons',
+              'PulmShuntFraction'
+              ]
+
+    y_true = prediction_array[run][0]
+    y_pred = prediction_array[run][1]
+
+    for attribute in range(len(y_true[0])):
+        attr_name = labels[attribute]
+
+        y_true_current = y_true[:, attribute]
+        y_pred_current = y_pred[:, attribute]
+
+        # make a df with the labels info
+        current_df = pd.DataFrame(list(zip(y_true_current, y_pred_current, run_label)),
+                                  columns=['y_true', 'y_pred', 'physiology'])
+
+        # manage the run label column. It needs to be string type
+        current_df['physiology'] = current_df['physiology'].apply(lambda x: str(x))
+        current_df.replace({'physiology': run_dictionary}, inplace=True)
+
+        g = sns.relplot(data=current_df, x="y_true", y="y_pred", hue="physiology", marker='o', edgecolor="k", s=40)
+        x_ideal = np.linspace(y_true[:, attribute].min(), y_true[:, attribute].max(), 200)
+        y_ideal = x_ideal
+        plt.plot(x_ideal, y_ideal, color='r')
+        g._legend.remove()
+        plt.legend(bbox_to_anchor=(1.05, 0.8), loc='upper left', borderaxespad=0)
+        plt.title(attr_name)
+        plt.xlabel('True value')
+        plt.ylabel('Predicted value')
+        plt.tight_layout()
+        if output_dir:
+            plt.savefig(attr_name + '__scatter__cm.svg',
+                        dpi=300,
+                        format='svg',
+                        bbox_inches='tight'
+                        )
+        plt.show()
+
+
+
+
+
+
+    return
+
 # use this for debug
 if __name__ == "__main__":
     print()
+
+
+
+
+
+
+
+
+
+
+
 
