@@ -58,16 +58,22 @@ def prediction_plotter_2d(y_true, y_pred, output_dir = None, figname= None):
 
 
 def plot_corr_matrix(df, dataset_path = None, monitoring_params = None, input_params = None):
-    # extract correlation matrix. It also order the matrix using the
-    # cuthill mckee algorithm.
-    # If we have a numpy array, we turn it into a pandas df to
-    # extract correlation matrix
+    '''
+    :param df: dataframe containing the data
+    :param dataset_path: path of the dataset
+    :param monitoring_params: subset of params
+    :param input_params: subset of params
+    :return:
+    extract correlation matrix. It also order the matrix using the cuthill mckee algorithm.
+    If we have a numpy array, we turn it into a pandas df to extract correlation matrix.
+    '''
+
     if isinstance(df, np.ndarray):
         df = pd.DataFrame(data=df, columns=monitoring_params + input_params)
 
     df = read_merged_dataset(dataset_path)
     monitoring_params = [  # 'ParameterSet',
-        'No',
+        #'No',
         # 'Time',
         'CycleTime',
         'Heart rate',
@@ -81,7 +87,7 @@ def plot_corr_matrix(df, dataset_path = None, monitoring_params = None, input_pa
         'Hemoglobin',
         'Systemic arterial oxygen saturation',
         'Mixed venous oxygen saturation']
-    input_params = ['ParameterSet',
+    input_params = [#'ParameterSet',
                     # 'HR',
                     'TotalVascularVolume',
                     'e_lvmax',
@@ -98,8 +104,10 @@ def plot_corr_matrix(df, dataset_path = None, monitoring_params = None, input_pa
                     # 'p_low'
                     ]
     df.drop(labels=['ParameterSet', 'No', 'Time', 'p_low'], axis=1, inplace=True)
+    df = df[monitoring_params + input_params]
     corr = df.corr()
 
+    # matrix ordering
     corr_np = csr_matrix(corr.to_numpy())
     perm = reverse_cuthill_mckee(corr_np, symmetric_mode=True)
     for i in range(len(perm)):
@@ -109,11 +117,18 @@ def plot_corr_matrix(df, dataset_path = None, monitoring_params = None, input_pa
 
     corr = pd.DataFrame(data=corr_np.toarray(), columns=monitoring_params + input_params)
 
-    # slice the index
-    # corr = corr.iloc[12:25, 12:25]
 
     # reset the index for the rows
     corr.set_index(pd.Series(monitoring_params + input_params), inplace=True)
+
+    # slice the index (useful to plot just some parameters)
+    # [0:11, 0:11] for input params
+    # [12:23, 12:23] for output params
+    corr = corr.iloc[0:11, 12:23]
+
+    #mask
+    #mask = np.triu(np.ones_like(corr, dtype=bool))
+
     fig, ax = plt.subplots(figsize=(20, 18))
     sns.set(font_scale=1.3)
     cmap = sns.diverging_palette(10, 220, as_cmap=True)
@@ -125,14 +140,15 @@ def plot_corr_matrix(df, dataset_path = None, monitoring_params = None, input_pa
         cmap=cmap,
         square=True,
         linewidths=0.5,
-        linecolor='k',
+        linecolor='w',
         annot=True,
         fmt='.3f',
         cbar_kws={"shrink": .5},
+        #mask=mask,
         ax=ax
     )
     ax.set_yticklabels(ax.get_yticklabels(), rotation=0, horizontalalignment='right', fontsize=20)
-    ax.set_xticklabels(ax.get_xticklabels(), rotation=60, horizontalalignment='center', fontsize=20)
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=60, horizontalalignment='right', fontsize=20)
     ax.set(title='Correlation matrix')
     plt.tight_layout()
     plt.show()
@@ -140,6 +156,20 @@ def plot_corr_matrix(df, dataset_path = None, monitoring_params = None, input_pa
 
 def log_run(run_name, output_dir,mse_vector,armsse_vector,multi_mse_vector,multi_rmse_vector,dummy_mse_vector,
             dummy_arrmse_vector,prediction_vector,runtime_vector,seed):
+    '''
+    :param run_name:
+    :param output_dir:
+    :param mse_vector:
+    :param armsse_vector:
+    :param multi_mse_vector:
+    :param multi_rmse_vector:
+    :param dummy_mse_vector:
+    :param dummy_arrmse_vector:
+    :param prediction_vector:
+    :param runtime_vector:
+    :param seed:
+    :return:
+    '''
 
     # save in the choosen output dir
     #os.chdir(output_dir)
@@ -231,11 +261,11 @@ def log_run(run_name, output_dir,mse_vector,armsse_vector,multi_mse_vector,multi
 
 def plot_true_pred_dist(prediction_array, output_dir = None, run = 0):
     '''
-
     :param prediction_array: the array saved from the ML runs
     :return: plot in std_output the distribution of the target variables.
             save the fig in output_dir, if given.
     '''
+
     if output_dir:
         os.chdir(output_dir)
         os.makedirs('dist_plot')
@@ -285,10 +315,13 @@ def plot_true_pred_scatter(prediction_array,prediction_array_path = None ,output
         the red line plotted is the bisector so it describes the ideal case in which predicted = true for all data point.
     '''
 
+    os.chdir(output_dir)
     # run it in the PyProject folder if you give output_dir as params
-    if output_dir:
-        os.chdir(output_dir)
+    if output_dir and (not os.path.isdir('./scatter_plot')):
         os.makedirs('scatter_plot')
+        os.chdir('./scatter_plot')
+
+    if os.path.isdir('./scatter_plot'):
         os.chdir('./scatter_plot')
 
     if prediction_array_path is not None:
@@ -340,6 +373,9 @@ def plot_true_pred_color_code_scatter(prediction_array, seed, prediction_array_p
 
         here we color map the entry on the scatter plot depending on the type of patient which they belong.
     '''
+    if prediction_array_path is not None:
+        prediction_array = np.load(prediction_array_path)
+
     os.chdir(output_dir)
     if output_dir and (not os.path.isdir('./scatter_plot_cm')):
         os.makedirs('scatter_plot_cm')
@@ -347,10 +383,6 @@ def plot_true_pred_color_code_scatter(prediction_array, seed, prediction_array_p
 
     if os.path.isdir('./scatter_plot_cm'):
         os.chdir('./scatter_plot_cm')
-
-
-    if prediction_array_path is not None:
-        prediction_array = np.load(prediction_array_path)
 
     run_dictionary = {
         '0': 'Adult 20y',
@@ -437,8 +469,86 @@ def plot_true_pred_color_code_scatter(prediction_array, seed, prediction_array_p
 
 # use this for debug
 if __name__ == "__main__":
-    print()
+    seed = 26
+    run = 0
+    prediction_array = np.load('experiments/ML/run_history/MultiOutputRegressor(GradientBoostingRegressor(random_state=seed, max_depth = 3))/run__pred_vector.npy')
 
+    output_dir = 'experiments/ML/run_history/MultiOutputRegressor(GradientBoostingRegressor(random_state=seed, max_depth = 3))/scatter_plot_cm/'
+    run_dictionary = {
+        '0': 'Adult 20y',
+        '1': 'Adult 60y',
+        '2': 'Adult 80y',
+        '3': 'Adult 20y',
+        '4': 'Adult 40y',
+        '5': 'Adult 60y',
+        '6': 'Adult 80y',
+        '7': 'Biventricular Failure',
+        '8': 'Left ventricular systolic failure',
+        '9': 'Stiff ventricle',
+        '10': 'Relaxation abnormalilty',
+        '11': 'Right heart failure'
+    }
+
+    # create an array that resemble the structure of the dataset before the split:
+    # - first 20 entries as case 1
+    # - other 20 entries as case 2 and so on.
+    label_list = []
+    X = np.random.rand(240)
+    for i in range(12):
+        for _ in range(20):
+            label_list.append(i)
+
+    # reproduce the split used in the run
+    np.random.seed(seed)  # seed for reproducibility
+    _, _, _, run_label = train_test_split(X, label_list, train_size=0.8)
+
+    labels = ['TotalVascularVolume',
+              'e_lvmax',
+              'e0_lv',
+              'e_rvmax',
+              'e0_rv',
+              'SVR',
+              'PVR',
+              'Ea',
+              'Epa',
+              'O2Cons',
+              'PulmShuntFraction'
+              ]
+
+    y_true = prediction_array[run][0]
+    y_pred = prediction_array[run][1]
+
+    for attribute in range(len(y_true[0])):
+        attr_name = labels[attribute]
+
+        y_true_current = y_true[:, attribute]
+        y_pred_current = y_pred[:, attribute]
+
+        # make a df with the labels info
+        current_df = pd.DataFrame(list(zip(y_true_current, y_pred_current, run_label)),
+                                  columns=['y_true', 'y_pred', 'physiology'])
+
+        # manage the run label column. It needs to be string type
+        current_df['physiology'] = current_df['physiology'].apply(lambda x: str(x))
+        current_df.replace({'physiology': run_dictionary}, inplace=True)
+
+        g = sns.relplot(data=current_df, x="y_true", y="y_pred", hue="physiology", marker='o', edgecolor="k", s=40)
+        x_ideal = np.linspace(y_true[:, attribute].min(), y_true[:, attribute].max(), 200)
+        y_ideal = x_ideal
+        plt.plot(x_ideal, y_ideal, color='r')
+        g._legend.remove()
+        plt.legend(bbox_to_anchor=(1.05, 0.8), loc='upper left', borderaxespad=0)
+        plt.title(attr_name)
+        plt.xlabel('True value')
+        plt.ylabel('Predicted value')
+        plt.tight_layout()
+        os.chdir(output_dir)
+        plt.savefig(attr_name + '__scatter__cm.svg',
+                        dpi=300,
+                        format='svg',
+                        bbox_inches='tight'
+                        )
+        plt.show()
 
 
 

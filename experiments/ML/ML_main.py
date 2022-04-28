@@ -120,10 +120,6 @@ if __name__ == "__main__":
         model.fit(X_train, y_train)
 
         print('##### results run_history (seed: '+str(seed)+')')
-        # get model score
-        #score = model.score(X_test, y_test)
-        #print('Done. Score', score)
-
         # get model metrics
         y_true = y_test
         y_pred = model.predict(X_test)
@@ -155,7 +151,6 @@ if __name__ == "__main__":
         runtime_vector.append(stop - start)
 
         #plotting
-
         print('---------Dummy regressor score --------')
         # dummy regressor to compare results
         dummy_regressor = DummyRegressor(strategy='mean')
